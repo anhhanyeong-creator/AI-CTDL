@@ -1,12 +1,39 @@
 #include "QuanLyNhanSu.h"
 #include "GiaoDien.h"
 #include "Admin.h"
+
 #include <iostream>
 #include <fstream>
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-
+#include <iomanip>
+#include <vector>
+#include <string>
+template <typename T>
+int timViTri(const std::vector<T>& ds, const std::string& username){
+    for(int i=0;i<ds.size();i++){
+        if(ds[i].getUsername()==username){
+            return i;
+        }
+    }
+    return -1;
+}
+bool usernameHopLe(const std::string& username){
+    if(username.empty()){
+        return false;
+    }
+    for(char c:username){
+        if(!std::isalnum(static_cast<unsigned char>(c))&&
+            c!='_'&&c!='-'){
+                return false;
+            }
+    }
+    return true;
+}
+std::string tenFileThongTin(const std::string& username){
+    return "Data/"+username+".txt";
+}
 QuanLyNhanSu::QuanLyNhanSu()
     : khoAdmin("Data/Administrator.txt"),
       khoNhanVien("Data/Employee.txt") {
@@ -68,31 +95,53 @@ std::string QuanLyNhanSu::tenFileThongTin(const std::string& username) const {
     return "Data/" + username + ".txt";
 }
 
-bool QuanLyNhanSu::dangNhap(FileRepository<TaiKhoan>& kho, TaiKhoan& taiKhoan,
-                            const std::string& vaiTro, bool gioiHanBaLan) {
-    std::vector<TaiKhoan> ds = kho.docTatCa();
-    std::string username;
-    std::cout << "\nUsername: ";
-    std::getline(std::cin, username);
 
+bool QuanLyNhanSu::dangNhap(
+    FileRepository<TaiKhoan>& kho,
+    TaiKhoan& taiKhoan,
+    const std::string& vaiTro,
+    bool gioiHanBaLan
+) {
+    std::vector<TaiKhoan> ds = kho.docTatCa();
     int soLanSai = 0;
-    while (soLanSai < (gioiHanBaLan ? 3 : 1000)) {
-        std::string password = GiaoDien::nhapMatKhau("Password: ");
-        for (const TaiKhoan& tk : ds) {
-            if (tk.getUsername() == username && tk.getPassword() == password) {
-                taiKhoan = tk;
-                GiaoDien::inThongBao("Dang nhap " + vaiTro + " thanh cong!", MauSac::XANH_LA);
-                return true;
-            }
+    int gioiHan = gioiHanBaLan ? 3 : 1000;
+    while (soLanSai < gioiHan) {
+        GiaoDien::batDauKhungNhap("Nhap thong tin", 40);
+        std::string username =
+            GiaoDien::nhapChuoiTrongKhung("Username: ", 40);
+        std::string password =
+            GiaoDien::nhapMatKhauTrongKhung("Password: ", 40);
+        GiaoDien::ketThucKhungNhap(40);
+        int viTri = timViTriNhanVien(ds, username);
+        if (viTri != -1 &&
+            ds[viTri].getPassword() == password) {
+            taiKhoan = ds[viTri];
+            GiaoDien::inThongBaoTrongKhung(
+                ">> Dang nhap thanh cong", 40
+            );
+            GiaoDien::inThongBao(
+                "Chao mung " + vaiTro + "!",
+                MauSac::XANH_LA
+            );
+            return true;
         }
-        ++soLanSai;
-        GiaoDien::inThongBao("Sai username hoac password. Con " +
-            std::to_string((gioiHanBaLan ? 3 : 1000) - soLanSai) + " lan thu.", MauSac::DO);
-        if (!gioiHanBaLan) return false;
+        soLanSai++;
+        GiaoDien::inThongBao(
+            "Username hoac password khong dung!",
+            MauSac::DO
+        );
+        if (!gioiHanBaLan)
+            return false;
+        std::cout << "So lan con lai: "
+                  << 3 - soLanSai << '\n';
     }
-    GiaoDien::inThongBao("Ban da dang nhap sai 3 lan. Chuong trinh se ket thuc.", MauSac::DO);
+    GiaoDien::inThongBao(
+        "Ban da dang nhap sai 3 lan. Chuong trinh ket thuc.",
+        MauSac::DO
+    );
     return false;
 }
+
 
 void QuanLyNhanSu::chay() {
     while (true) {
@@ -142,41 +191,87 @@ void QuanLyNhanSu::menuAdmin(const TaiKhoan& taiKhoan) {
 }
 
 void QuanLyNhanSu::themNhanVien() {
-    GiaoDien::inTieuDe("THEM NHAN VIEN");
     std::vector<TaiKhoan> ds = khoNhanVien.docTatCa();
-    std::string username, hoTen, diaChi, sdt, email;
-    std::cout << "Username (chu va so, _ hoac -): ";
-    std::getline(std::cin, username);
-    if (!tenDangNhapHopLe(username) || timViTriNhanVien(ds, username) != -1) {
-        GiaoDien::inThongBao("Username khong hop le hoac da ton tai. Khong them duoc.", MauSac::DO);
+
+    GiaoDien::batDauKhungNhap("Them nhan vien", 40);
+
+    std::string username =
+        GiaoDien::nhapChuoiTrongKhung("Username: ", 40);
+
+    std::string hoTen =
+        GiaoDien::nhapChuoiTrongKhung("Ho ten: ", 40);
+
+    std::string diaChi =
+        GiaoDien::nhapChuoiTrongKhung("Dia chi: ", 40);
+
+    std::string sdt =
+        GiaoDien::nhapChuoiTrongKhung("So dien thoai: ", 40);
+
+    std::string email =
+        GiaoDien::nhapChuoiTrongKhung("Email: ", 40);
+
+    GiaoDien::ketThucKhungNhap(40);
+
+    if (!usernameHopLe(username) ||
+        timViTriNhanVien(ds, username) != -1) {
+
+        GiaoDien::inThongBao(
+            "Username khong hop le hoac da ton tai!",
+            MauSac::DO
+        );
         return;
     }
-    std::cout << "Ho ten: "; std::getline(std::cin, hoTen);
-    std::cout << "Dia chi: "; std::getline(std::cin, diaChi);
-    std::cout << "So dien thoai: "; std::getline(std::cin, sdt);
-    std::cout << "Email: "; std::getline(std::cin, email);
 
-    if (hoTen.empty() || diaChi.empty() || !soDienThoaiHopLe(sdt) || !emailHopLe(email) ||
-        hoTen.find('|') != std::string::npos || diaChi.find('|') != std::string::npos) {
-        GiaoDien::inThongBao("Du lieu khong hop le. So dien thoai 9-11 chu so, email dung dinh dang.", MauSac::DO);
+    // Kiem tra thong tin
+    if (hoTen.empty() || diaChi.empty() ||
+        !soDienThoaiHopLe(sdt) ||
+        !emailHopLe(email)) {
+
+        GiaoDien::inThongBao(
+            "Thong tin nhan vien khong hop le!",
+            MauSac::DO
+        );
         return;
     }
 
-    NhanVien nv(TaiKhoan(username, "111111", true));
-    nv.setHoTen(hoTen); nv.setDiaChi(diaChi);
-    nv.setSoDienThoai(sdt); nv.setEmail(email);
+    // Tao tai khoan
+    TaiKhoan tk(username, "111111", true);
+
+    // Tao doi tuong nhan vien
+    NhanVien nv(tk, hoTen, diaChi, sdt, email);
+
+    // Ghi file thong tin ca nhan
     if (!nv.ghiThongTin(tenFileThongTin(username))) {
-        GiaoDien::inThongBao("Khong tao duoc file thong tin nhan vien.", MauSac::DO);
+        GiaoDien::inThongBao(
+            "Khong tao duoc file nhan vien!",
+            MauSac::DO
+        );
         return;
     }
-    ds.emplace_back(username, "111111", true);
+
+    ds.push_back(tk);
+
     if (!khoNhanVien.ghiTatCa(ds)) {
-        std::remove(tenFileThongTin(username).c_str());
-        GiaoDien::inThongBao("Loi cap nhat Employee.txt.", MauSac::DO);
+        std::remove(
+            tenFileThongTin(username).c_str()
+        );
+
+        GiaoDien::inThongBao(
+            "Loi cap nhat Employee.txt!",
+            MauSac::DO
+        );
         return;
     }
-    GiaoDien::inThongBao("Them nhan vien thanh cong. Mat khau mac dinh: 111111", MauSac::XANH_LA);
+
+    GiaoDien::inThongBao(
+        "Them nhan vien thanh cong!",
+        MauSac::XANH_LA
+    );
+
+    std::cout << "Mat khau mac dinh: 111111\n";
 }
+
+
 
 void QuanLyNhanSu::xoaNhanVien() {
     GiaoDien::inTieuDe("XOA NHAN VIEN");
@@ -251,21 +346,92 @@ void QuanLyNhanSu::capNhatNhanVien() {
     else GiaoDien::inThongBao("Loi ghi file thong tin.", MauSac::DO);
 }
 
+
 void QuanLyNhanSu::hienThiTatCaNhanVien() const {
     GiaoDien::inTieuDe("DANH SACH NHAN VIEN");
+
     std::vector<TaiKhoan> ds = khoNhanVien.docTatCa();
+
     if (ds.empty()) {
-        GiaoDien::inThongBao("Danh sach nhan vien dang trong.", MauSac::VANG);
+        GiaoDien::inThongBao(
+            "Danh sach nhan vien dang trong!",
+            MauSac::VANG
+        );
         return;
     }
-    for (std::size_t i = 0; i < ds.size(); ++i) {
-        NhanVien nv(ds[i]);
-        if (nv.docThongTin(tenFileThongTin(ds[i].getUsername()))) {
-            std::cout << "\n--- Nhan vien " << i + 1 << " ---\n";
-            nv.hienThiThongTin();
+
+    const int rong[] = {17, 22, 21, 18, 22};
+
+    auto catChuoi = [](std::string s, int maxRong) {
+        if (static_cast<int>(s.size()) > maxRong) {
+            s = s.substr(0, maxRong - 3) + "...";
         }
+        return s;
+    };
+
+    auto veVienBang = [&]() {
+        std::cout << "++";
+
+        for (int i = 0; i < 5; i++) {
+            std::cout << std::string(rong[i] + 2, '=')
+                      << "++";
+        }
+
+        std::cout << '\n';
+    };
+
+    auto inDong = [&](const std::string cot[]) {
+        std::cout << "||";
+
+        for (int i = 0; i < 5; i++) {
+            std::cout << " "
+                      << std::left
+                      << std::setw(rong[i])
+                      << catChuoi(cot[i], rong[i])
+                      << " ||";
+        }
+
+        std::cout << '\n';
+    };
+
+    // Tieu de bang
+    const std::string tieuDe[] = {
+        "Username",
+        "Ho ten",
+        "Dia chi",
+        "So dien thoai",
+        "Email"
+    };
+
+    veVienBang();
+    inDong(tieuDe);
+    veVienBang();
+
+    // Duyet danh sach nhan vien
+    for (const TaiKhoan& tk : ds) {
+
+        NhanVien nv(tk);
+
+        if (!nv.docThongTin(
+            tenFileThongTin(tk.getUsername())
+        )) {
+            continue;
+        }
+
+        std::string thongTin[] = {
+            tk.getUsername(),
+            nv.getHoTen(),
+            nv.getDiaChi(),
+            nv.getSoDienThoai(),
+            nv.getEmail()
+        };
+
+        inDong(thongTin);
     }
+
+    veVienBang();
 }
+
 
 void QuanLyNhanSu::xemThongTinCaNhan(const TaiKhoan& taiKhoan) const {
     NhanVien nv(taiKhoan);
