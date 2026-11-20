@@ -4,9 +4,11 @@
 #include <iomanip>
 #include <string>
 #include <algorithm>
+#include <limits>
 
 #ifdef _WIN32
 #include <conio.h>
+#include <windows.h>
 #else
 #include <termios.h>
 #include <unistd.h>
@@ -24,6 +26,65 @@ namespace MauSac {
 }
 const int RONG_KHUNG = 88;
 const int LE_TRAI = 4;
+
+namespace {
+// Dem so ky tu UTF-8 thay vi so byte (phu hop voi chu tieng Viet).
+int doRongHienThi(const std::string& s) {
+    int doRong = 0;
+    for (unsigned char c : s) {
+        if ((c & 0xC0) != 0x80) ++doRong;
+    }
+    return doRong;
+}
+
+// Lay phan dau chuoi, khong cat ngang mot ky tu UTF-8.
+std::string catTheoCot(const std::string& s, int soCot) {
+    if (soCot <= 0) return "";
+    std::size_t i = 0;
+    int cot = 0;
+    while (i < s.size() && cot < soCot) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        std::size_t buoc = (c < 0x80) ? 1 : (c < 0xE0 ? 2 : (c < 0xF0 ? 3 : 4));
+        i = std::min(s.size(), i + buoc);
+        ++cot;
+    }
+    return s.substr(0, i);
+}
+
+// Dong khung co tong do rong chieuRong + 2 cot (ke ca hai vien '|').
+void inDongNhapDaHoanThanh(const std::string& nhan,
+                          const std::string& giaTriHienThi,
+                          int chieuRong) {
+    const int rong = std::max(2, chieuRong);
+    const int choNoiDung = rong - 1; // sau ky tu dau dong va dau cach
+    const std::string text = catTheoCot(nhan + giaTriHienThi, choNoiDung);
+    const int conLai = std::max(0, choNoiDung - doRongHienThi(text));
+    std::cout << MauSac::CYAN << '|' << MauSac::RESET
+              << ' ' << text << std::string(conLai, ' ')
+              << MauSac::CYAN << '|' << MauSac::RESET << '\n';
+}
+
+// Chi ap dung cho khi nhap vao console that.
+bool laConsole() {
+#ifdef _WIN32
+    DWORD mode = 0;
+    return GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &mode) != 0;
+#else
+    return isatty(STDOUT_FILENO) != 0;
+#endif
+}
+
+#ifdef _WIN32
+// Luu vi tri con tro truoc khi in nhan, de ghi de dong nhap sau Enter.
+COORD viTriConTro() {
+    CONSOLE_SCREEN_BUFFER_INFO info{};
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info))
+        return info.dwCursorPosition;
+    return COORD{0, 0};
+}
+#endif
+}
+
 GiaoDien::GiaoDien() {}
 GiaoDien::GiaoDien(const GiaoDien& other) {
     (void)other;
@@ -39,68 +100,48 @@ void GiaoDien::xoaManHinh() {
 }
 
 void GiaoDien::inVienNgang(int rong) {
+    if (rong < 4) return;
     std::cout << std::string(LE_TRAI, ' ')
               << MauSac::XANH_DUONG
-              << "++"
-              << std::string(rong - 4, '=')
-              << "++\n"
-              << MauSac::RESET;
+              << "++" << std::string(rong - 4, '=') << "++"
+              << MauSac::RESET << '\n';
 }
-void GiaoDien::inDongKhung(
-    const std::string& noiDung,
-    int rong
-) {
+
+void GiaoDien::inDongKhung(const std::string& noiDung, int rong) {
     inDongKhung(noiDung, true, rong);
 }
+
 void GiaoDien::inDongKhung(
-    const std::string& noiDung,
-    bool canGiua,
-    int rong
+    const std::string& noiDung, bool canGiua, int rong
 ) {
-    int khoangTrong = rong - 4;
-    int trai = 1;
-
-    if (canGiua) {
-        trai = (khoangTrong - noiDung.length()) / 2;
-    }
-
-    int phai = khoangTrong - noiDung.length() - trai;
-
+    if (rong < 4) return;
+    const int benTrong = rong - 4;
+    const std::string text = catTheoCot(noiDung, benTrong);
+    const int conLai = benTrong - doRongHienThi(text);
+    const int trai = canGiua ? conLai / 2 : std::min(1, conLai);
+    const int phai = conLai - trai;
     std::cout << std::string(LE_TRAI, ' ')
-              << MauSac::XANH_DUONG << "||"
-              << MauSac::RESET
-              << std::string(trai, ' ')
-              << noiDung
-              << std::string(phai, ' ')
-              << MauSac::XANH_DUONG << "||\n"
-              << MauSac::RESET;
+              << MauSac::XANH_DUONG << "||" << MauSac::RESET
+              << std::string(trai, ' ') << text << std::string(phai, ' ')
+              << MauSac::XANH_DUONG << "||" << MauSac::RESET << '\n';
 }
-void GiaoDien::hienThiLoGo(){
-    std::cout<<MauSac::CYAN;
-    std::cout<<R"(
-    ++====================================================================================++
+
+void GiaoDien::hienThiLoGo() {
+    // Chu y: khong de khoang trang sau dong cuoi cua logo.
+    // Moi dong co 4 dau cach va khung rong 88 cot.
+    std::cout << MauSac::CYAN << R"(    ++====================================================================================++
     ||  ▄█████▄ ▄▄ ▄▄  ▄▄▄  ▄▄  ▄▄   ▄▄  ▄▄ ▄▄   ▄▄  ▄▄ ▄▄ ▄▄  ▄▄▄  ▄▄  ▄▄    ▄▄▄▄ ▄▄ ▄▄  ||
     ||  ██ ▄ ██ ██ ██ ██▀██ ███▄██   ██  ▀███▀   ███▄██ ██▄██ ██▀██ ███▄██   ███▄▄ ██ ██  ||
     ||  ▀█████▀ ▀███▀ ██▀██ ██ ▀██   ██▄▄▄ █     ██ ▀██ ██ ██ ██▀██ ██ ▀██   ▄▄██▀ ▀███▀  ||
-    ||     ▀▀                                                                             ||                                           
+    ||     ▀▀                                                                             ||
     ++====================================================================================++
-    )";
-    std::cout<<MauSac::RESET;
+)" << MauSac::RESET;
 }
+
 void GiaoDien::inTieuDe(const std::string& tieuDe) {
     inVienNgang(50);
-    std::cout<<MauSac::CYAN<<"||"<<MauSac::RESET;
-    int rong=50-static_cast<int>(tieuDe.size());
-    int trai=rong/2;
-    int phai=rong-trai;
-
-    std::cout<<std::string(trai,' ')
-             <<MauSac::DAM<<MauSac::CYAN
-             <<tieuDe
-             <<MauSac::RESET
-             <<std::string(phai,' ')
-             <<MauSac::CYAN<<"||"
-             <<MauSac::RESET<<'\n';
+    // Dung chung ham inDongKhung de hai vien can thang.
+    inDongKhung(tieuDe, true, 50);
     inVienNgang(50);
 }
 void GiaoDien::hienThiMenuChinh() {
@@ -143,109 +184,118 @@ void GiaoDien::hienThiMenuNhanVien() {
               << "Lua chon: "
               << MauSac::RESET;
 }
-void GiaoDien::batDauKhungNhap(
-    const std::string& tieuDe,
-    int chieuRong
-){
-    int trai=(chieuRong-static_cast<int>(tieuDe.size()))/2;
-    int phai=chieuRong-static_cast<int>(tieuDe.size())-trai;
-    std::cout<<"\n"
-             <<MauSac::CYAN
-             <<"+"<<std::string(trai,'=')
-             <<" "<<tieuDe<<" "
-             <<std::string(phai,'=')<<"+"
-             <<MauSac::RESET<<'\n';
+void GiaoDien::batDauKhungNhap(const std::string& tieuDe,
+                                int chieuRong) {
+    const int rong = std::max(2, chieuRong);
+    const std::string text = catTheoCot(tieuDe, std::max(0, rong - 2));
+    const int dauBang = rong - 2 - doRongHienThi(text);
+    const int trai = dauBang / 2;
+    const int phai = dauBang - trai;
+    std::cout << "\n" << MauSac::CYAN
+              << "+" << std::string(trai, '=') << " " << text << " "
+              << std::string(phai, '=') << "+"
+              << MauSac::RESET << '\n';
 }
+
 std::string GiaoDien::nhapChuoiTrongKhung(
-    const std::string& nhan,
-    int chieuRong
-){
+    const std::string& nhan, int chieuRong
+) {
     std::string giaTri;
-    std::cout<<MauSac::CYAN<<"|"<<MauSac::RESET
-             <<" "<<nhan;
-    std::getline(std::cin,giaTri);
-    int daDung=1+static_cast<int>(nhan.size())
-                +static_cast<int>(giaTri.size());
-    int conLai=std::max(0,chieuRong-daDung);
-    std::cout<<std::string(conLai,' ')
-             <<MauSac::CYAN<<"|"<<MauSac::RESET
-             <<'\n';
+    const bool console = laConsole();
+#ifdef _WIN32
+    const COORD batDau = viTriConTro();
+#endif
+    if (console) {
+        std::cout << MauSac::CYAN << '|' << MauSac::RESET
+                  << ' ' << nhan << std::flush;
+    }
+    std::getline(std::cin, giaTri);
+
+    // getline da xuong dong khi Enter duoc nhan. Quay lai dong cu
+    // va ve lai dong day du, KHONG in khoang trang vao dong ke tiep.
+    if (console) {
+#ifdef _WIN32
+        SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), batDau);
+#else
+        std::cout << "\033[1A\r";
+#endif
+    }
+    inDongNhapDaHoanThanh(nhan, giaTri, chieuRong);
     return giaTri;
 }
+
 std::string GiaoDien::nhapMatKhauTrongKhung(
-    const std::string& nhan,
-    int chieuRong
-){
+    const std::string& nhan, int chieuRong
+) {
     std::string password;
-    std::cout<<MauSac::CYAN<<"|"<<MauSac::RESET
-             <<" "<<nhan;
+    const int soKyTuToiDa = std::max(0, chieuRong - 1 - doRongHienThi(nhan));
+    std::cout << MauSac::CYAN << '|' << MauSac::RESET
+              << ' ' << nhan << std::flush;
 #ifdef _WIN32
-    while(true){
-        int ch=_getch();
-        if(ch==13)
-            break;
-        if(ch==8){
-            if(!password.empty()){
+    while (true) {
+        const int ch = _getch();
+        if (ch == 13) break;
+        if (ch == 8) {
+            if (!password.empty()) {
                 password.pop_back();
-                std::cout<<"\b \b";
+                std::cout << "\b \b" << std::flush;
             }
-        }
-        else if(ch>=32 && ch<=126){
+        } else if (ch >= 32 && ch <= 126 &&
+                   static_cast<int>(password.size()) < soKyTuToiDa) {
             password.push_back(static_cast<char>(ch));
-            std::cout<<'*';
+            std::cout << '*' << std::flush;
         }
     }
 #else
     termios oldSettings{}, newSettings{};
-    tcgetattr(STDIN_FILENO, &oldSettings);
-    newSettings=oldSettings;
-    newSettings.s_lflag &= stactic_cast<tcflag_t>(~(ECHO|ICANON));
-    tcsetattr(STDIN_FILENO, TCSANOW, &newSettings);
-    while(true){
-        char ch=0;
-        if(read(STDIN_FILENO,&ch, 1)!=1)
-            break;
-        if(ch=='\n'||ch=='\r')
-            break;
-        if(ch==127||ch==8){
-            if(!password.empty()){
+    const bool coTermios = tcgetattr(STDIN_FILENO, &oldSettings) == 0;
+    if (coTermios) {
+        newSettings = oldSettings;
+        newSettings.c_lflag &= static_cast<tcflag_t>(~(ECHO | ICANON));
+        tcsetattr(STDIN_FILENO, TCSANOW, &newSettings);
+    }
+    while (true) {
+        char ch = 0;
+        if (read(STDIN_FILENO, &ch, 1) != 1) break;
+        if (ch == '\n' || ch == '\r') break;
+        if (ch == 127 || ch == 8) {
+            if (!password.empty()) {
                 password.pop_back();
-                std::cout<<"\b \b"<<std::flush;
+                std::cout << "\b \b" << std::flush;
             }
-        }
-        else if(ch>=32 && ch<=126){
+        } else if (ch >= 32 && ch <= 126 &&
+                   static_cast<int>(password.size()) < soKyTuToiDa) {
             password.push_back(ch);
-            std::cout<<'*'<<sdt::flush;
+            std::cout << '*' << std::flush;
         }
     }
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldSettings);
-#endif  
-    int daDung=1+static_cast<int>(nhan.size())
-                +static_cast<int>(password.size());
-    int conLai=std::max(0,chieuRong-daDung);
-    std::cout<<std::string(conLai,' ')
-             <<MauSac::CYAN<<"|"<<MauSac::RESET
-             <<'\n';
+    if (coTermios) tcsetattr(STDIN_FILENO, TCSANOW, &oldSettings);
+#endif
+    const int conLai = std::max(0, chieuRong - 1 -
+        doRongHienThi(nhan) - static_cast<int>(password.size()));
+    std::cout << std::string(conLai, ' ')
+              << MauSac::CYAN << '|' << MauSac::RESET << '\n';
     return password;
 }
+
 void GiaoDien::inThongBaoTrongKhung(
-    const std::string& noiDung,
-    int chieuRong
-){
-    int daDung=static_cast<int>(noiDung.size())+1;
-    int conLai=std::max(0, chieuRong-daDung);
-    std::cout<<MauSac::CYAN<<"|"<<MauSac::RESET
-             <<" "<<MauSac::XANH_LA
-             <<noiDung<<MauSac::RESET
-             <<std::string(conLai,' ')
-             <<MauSac::CYAN<<"|"<<MauSac::RESET
-             <<'\n';
+    const std::string& noiDung, int chieuRong
+) {
+    const int rong = std::max(2, chieuRong);
+    const std::string text = catTheoCot(noiDung, rong - 1);
+    const int conLai = rong - 1 - doRongHienThi(text);
+    std::cout << MauSac::CYAN << '|' << MauSac::RESET
+              << ' ' << MauSac::XANH_LA << text << MauSac::RESET
+              << std::string(conLai, ' ')
+              << MauSac::CYAN << '|' << MauSac::RESET << '\n';
 }
-void GiaoDien::ketThucKhungNhap(int chieuRong){
-    std::cout<<MauSac::CYAN
-             <<"+"<<std::string(chieuRong,'=')<<"+"
-             <<MauSac::RESET<<"\n";
+
+void GiaoDien::ketThucKhungNhap(int chieuRong) {
+    std::cout << MauSac::CYAN << '+'
+              << std::string(std::max(2, chieuRong), '=') << '+'
+              << MauSac::RESET << '\n';
 }
+
 void GiaoDien::inThongBao(
     const std::string& noiDung, 
     const std::string& mau
@@ -261,23 +311,23 @@ void GiaoDien::dungManHinh() {
     std::getline(std::cin, temp);
 }
 
-void GiaoDien::hienThiKhungDangNhap(){
-    std::cout<<"\n";
-    std::cout<<"+============ Nhap thong tin ============+\n";
-    std::cout<<"| Username:                               |\n";
-    std::cout<<"| Password:                               |\n";
-    std::cout<<"+========================================+\n";
+void GiaoDien::hienThiKhungDangNhap() {
+    batDauKhungNhap("Nhap thong tin", 40);
+    inThongBaoTrongKhung("Username:", 40);
+    inThongBaoTrongKhung("Password:", 40);
+    ketThucKhungNhap(40);
 }
-void GiaoDien::hienThiKhungThemNhanVien(){
-    std::cout << "\n";
-    std::cout << "+============ Them nhan vien ============+\n";
-    std::cout << "| Username:                               |\n";
-    std::cout << "| Ho ten:                                 |\n";
-    std::cout << "| Dia chi:                                |\n";
-    std::cout << "| So dien thoai:                          |\n";
-    std::cout << "| Email:                                  |\n";
-    std::cout << "+========================================+\n";
+
+void GiaoDien::hienThiKhungThemNhanVien() {
+    batDauKhungNhap("Them nhan vien", 40);
+    inThongBaoTrongKhung("Username:", 40);
+    inThongBaoTrongKhung("Ho ten:", 40);
+    inThongBaoTrongKhung("Dia chi:", 40);
+    inThongBaoTrongKhung("So dien thoai:", 40);
+    inThongBaoTrongKhung("Email:", 40);
+    ketThucKhungNhap(40);
 }
+
 std::string GiaoDien::nhapMatKhau(const std::string& loiNhac) {
     std::cout << loiNhac;
     std::string password;
