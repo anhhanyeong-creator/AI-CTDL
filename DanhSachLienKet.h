@@ -9,7 +9,6 @@
 template <class T>
 class DanhSachLienKet {
 private:
-    // Node cua danh sach lien ket
     class Node {
     public:
         T data;
@@ -26,15 +25,12 @@ private:
     int soLuong;
 
 public:
-    // ================= CONSTRUCTOR =================
-
     DanhSachLienKet() {
         head = nullptr;
         tail = nullptr;
         soLuong = 0;
     }
 
-    // Copy constructor
     DanhSachLienKet(const DanhSachLienKet& other) {
         head = nullptr;
         tail = nullptr;
@@ -48,13 +44,9 @@ public:
         }
     }
 
-    // ================= DESTRUCTOR =================
-
     ~DanhSachLienKet() {
         xoaTatCa();
     }
-
-    // ================= TOAN TU GAN =================
 
     DanhSachLienKet& operator=(const DanhSachLienKet& other) {
         if (this == &other) {
@@ -73,8 +65,6 @@ public:
         return *this;
     }
 
-    // ================= KIEM TRA =================
-
     bool rong() const {
         return head == nullptr;
     }
@@ -82,8 +72,6 @@ public:
     int getSoLuong() const {
         return soLuong;
     }
-
-    // ================= THEM PHAN TU =================
 
     // Them vao dau danh sach
     void themDau(const T& giaTri) {
@@ -114,8 +102,6 @@ public:
         soLuong++;
     }
 
-    // ================= TRUY CAP PHAN TU =================
-
     // Lay phan tu tai vi tri index
     T* getTai(int index) {
         if (index < 0 || index >= soLuong) {
@@ -145,8 +131,6 @@ public:
 
         return &(p->data);
     }
-
-    // ================= TIM KIEM =================
 
     // Tim phan tu theo dieu kien
     T* timKiem(const std::function<bool(const T&)>& dieuKien) {
@@ -179,8 +163,6 @@ public:
 
         return nullptr;
     }
-
-    // ================= XOA PHAN TU =================
 
     // Xoa phan tu tai vi tri
     bool xoaTai(int index) {
@@ -239,7 +221,6 @@ public:
         return xoaTai(soLuong - 1);
     }
 
-    // ================= DUYET DANH SACH =================
 
     void duyet(
         const std::function<void(const T&)>& hamXuLy
@@ -270,7 +251,6 @@ public:
         }
     }
 
-    // ================= XOA TOAN BO =================
 
     void xoaTatCa() {
         Node* p = head;
