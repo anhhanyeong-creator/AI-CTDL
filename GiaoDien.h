@@ -12,6 +12,7 @@ namespace MauSac {
     extern const std::string VANG;
     extern const std::string TIM;
     extern const std::string DAM;
+    extern const std::string XANH_DUONG;
 }
 
 class GiaoDien {
@@ -31,7 +32,7 @@ public:
         bool canGiua,
         int rong
     );
-    static void hienThiLoGo(); 
+    static void hienThiLoGo();
     static void inTieuDe(const std::string& tieuDe);
     static void hienThiMenuChinh();
     static void hienThiMenuAdmin();
@@ -57,11 +58,9 @@ public:
         int chieuRong=40
     );
     static void ketThucKhungNhap(int chieuRong=40);
-    
 
-   
     static void inThongBao(
-        const std::string& noiDung, 
+        const std::string& noiDung,
         const std::string& mau
     );
     static void dungManHinh();
